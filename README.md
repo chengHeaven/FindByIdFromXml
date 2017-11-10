@@ -1,0 +1,2 @@
+# FindByIdFromXml
+自动查找XML中带有ID的控件并进行初始化
