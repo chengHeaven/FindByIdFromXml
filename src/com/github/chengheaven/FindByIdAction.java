@@ -150,11 +150,15 @@ public class FindByIdAction extends AnAction {
 
             if (clazz == null) {
                 PsiStatement viewStatement = null;
+                PsiStatement before = null;
                 if (method != null && method.getBody() != null) {
                     for (PsiStatement statement : method.getBody().getStatements()) {
                         if (isFragment && statement.getText().contains("inflater.inflate")) {
                             viewStr = statement.getText().substring(5, statement.getText().indexOf(" ="));
                             viewStatement = statement;
+                        }
+                        if (isFragment && statement.getText().contains("return " + viewStr + ";")) {
+                            before = statement;
                         }
                     }
                 }
@@ -182,6 +186,7 @@ public class FindByIdAction extends AnAction {
                                 styleManager.shortenClassReferences(holder.getBody().add(psiElement));
                             } else {
                                 log(field + " is already exist");
+                                showInfo(field + " is already exist");
                             }
                         } else {
                             showError("can't found ViewHolder Class");
@@ -192,10 +197,11 @@ public class FindByIdAction extends AnAction {
                             styleManager.shortenClassReferences(psiClass.add(psiField));
                             PsiElement psiElement = factory.createStatementFromText(generateFieldFindIdByFindById(isActivity, viewStr, type, viewId, field), psiClass);
                             if (method != null && method.getBody() != null) {
-                                styleManager.shortenClassReferences(method.getBody().addAfter(psiElement, viewStatement));
+                                styleManager.shortenClassReferences(method.getBody().addBefore(psiElement, before));
                             }
                         } else {
                             log(field + " is already exist");
+                            showInfo(field + " is already exist");
                         }
                     }
                 }
@@ -214,6 +220,7 @@ public class FindByIdAction extends AnAction {
                                     styleManager.shortenClassReferences(classHolder.add(psiField));
                                 } else {
                                     log(field + " is already exist");
+                                    showInfo(field + " is already exist");
                                 }
                             } else {
                                 showError("can't found ViewHolder Class");
@@ -225,6 +232,7 @@ public class FindByIdAction extends AnAction {
                                 styleManager.shortenClassReferences(psiClass.add(psiField));
                             } else {
                                 log(field + " is already exist");
+                                showInfo(field + " is already exist");
                             }
                         }
                     }
@@ -405,6 +413,13 @@ public class FindByIdAction extends AnAction {
 
     private static void showError(String text) {
         mFactory.createHtmlTextBalloonBuilder(text, MessageType.ERROR, null)
+                .setFadeoutTime(7500)
+                .createBalloon()
+                .show(RelativePoint.getCenterOf(mStatusBar.getComponent()), Balloon.Position.atRight);
+    }
+
+    private static void showInfo(String text) {
+        mFactory.createHtmlTextBalloonBuilder(text, MessageType.INFO, null)
                 .setFadeoutTime(7500)
                 .createBalloon()
                 .show(RelativePoint.getCenterOf(mStatusBar.getComponent()), Balloon.Position.atRight);
