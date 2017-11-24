@@ -37,7 +37,6 @@ public class FindByIdAction extends AnAction {
     private static StatusBar mStatusBar;
     private static PsiShortNamesCache mNamesCache;
     private PsiDirectory mResDir;
-    private boolean isActivity = false;
 
     private static JBPopupFactory newInstance() {
         if (mFactory == null) {
@@ -106,7 +105,7 @@ public class FindByIdAction extends AnAction {
                 return;
             }
 
-            psiClassIsActivity(project, psiClass);
+            boolean isActivity = psiClassIsActivity(project, psiClass);
 //            for (XmlTag tag : tags) {
 //                if (tag.getName().equals("application")) {
 //                    for (XmlTag subTag : tag.getSubTags()) {
@@ -261,7 +260,7 @@ public class FindByIdAction extends AnAction {
                             if (type.equals("android.support.v7.widget.RecyclerView")) {
                                 PsiField adapter = factory.createFieldFromText(generateAdapterField(prefix, field), psiClass);
                                 styleManager.shortenClassReferences(psiClass.add(adapter));
-
+//
                                 element = factory.createStatementFromText(generateSetting(field, context), psiClass);
                                 element1 = factory.createStatementFromText(generateSetting1(field, prefix), psiClass);
                                 element2 = factory.createStatementFromText(generateSetting2(field), psiClass);
@@ -396,6 +395,7 @@ public class FindByIdAction extends AnAction {
                 }
             }
 
+
             for (String id : ids) {
                 String[] view = id.split("\\+");
                 String type = view[0];
@@ -409,7 +409,7 @@ public class FindByIdAction extends AnAction {
         }
     }
 
-    private void psiClassIsActivity(Project project, PsiClass psiClass) {
+    private boolean psiClassIsActivity(Project project, PsiClass psiClass) {
 
         if (psiClass.getExtendsList() != null && psiClass.getExtendsList().getReferenceElements().length != 0) {
             if (!psiClass.getExtendsList().getReferenceElements()[0].getQualifiedName().equals("android.app.Activity")) {
@@ -417,9 +417,10 @@ public class FindByIdAction extends AnAction {
                 PsiClass clazz = JavaPsiFacade.getInstance(project).findClass(name, new EverythingGlobalScope(project));
                 psiClassIsActivity(project, clazz);
             } else {
-                isActivity = true;
+                return true;
             }
         }
+        return false;
     }
 
     private void findResDir(PsiDirectory psiDirectory) {
@@ -569,7 +570,7 @@ public class FindByIdAction extends AnAction {
                     showError("can't found layout file");
                 }
             } else {
-                showError("can't found R.layout");
+                showError("must be layout file");
             }
         } else {
             showError("Element does not belong to PsiIdentifier");
