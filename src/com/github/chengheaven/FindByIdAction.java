@@ -26,6 +26,7 @@ import com.intellij.ui.awt.RelativePoint;
 import org.apache.http.util.TextUtils;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.github.chengheaven.EventLogger.log;
@@ -36,6 +37,7 @@ public class FindByIdAction extends AnAction {
     private static StatusBar mStatusBar;
     private static PsiShortNamesCache mNamesCache;
     private PsiDirectory mResDir;
+    private boolean isActivity = false;
 
     private static JBPopupFactory newInstance() {
         if (mFactory == null) {
@@ -85,7 +87,6 @@ public class FindByIdAction extends AnAction {
         PsiClass psiClass = getTargetClass(editor, psiFile);
         PsiElementFactory factory = JavaPsiFacade.getElementFactory(project);
         if (psiClass != null) {
-            boolean isActivity = false;
             boolean isAdapter = false;
             boolean isFragment = false;
             PsiFile[] xmlFiles = mNamesCache.getFilesByName("AndroidManifest.xml");
@@ -97,33 +98,44 @@ public class FindByIdAction extends AnAction {
             }
             XmlTag[] tags = new XmlTag[0];
             if (manifest != null) {
+                log("manifest not null");
                 tags = manifest.getSubTags();
             }
-            for (XmlTag tag : tags) {
-                if (tag.getName().equals("application")) {
-                    for (XmlTag subTag : tag.getSubTags()) {
-                        if (subTag.getAttributeValue("android:name").contains(psiClass.getName())) {
-                            isActivity = true;
-                        }
-                    }
-                }
+            if (tags.length == 0) {
+                log("tags.length======" + tags.length);
+                return;
             }
+
+            psiClassIsActivity(project, psiClass);
+//            for (XmlTag tag : tags) {
+//                if (tag.getName().equals("application")) {
+//                    for (XmlTag subTag : tag.getSubTags()) {
+//                        if (subTag.getAttributeValue("android:name").contains(psiClass.getName())) {
+//                            isActivity = true;
+//                        }
+//                    }
+//                }
+//            }
+
             PsiClass clazz = JavaPsiFacade.getInstance(project).findClass("butterknife.BindView", new EverythingGlobalScope(project));
             JavaCodeStyleManager styleManager = JavaCodeStyleManager.getInstance(psiClass.getProject());
             PsiMethod[] methods;
 
             if (isActivity) {
                 methods = psiClass.findMethodsByName("onCreate", false);
+                log("activity methods" + Arrays.toString(methods));
                 if (methods.length == 0) {
-                    showError("must be activity or fragment layout");
+                    showError("must be activity or fragment and adapter layout");
                     return;
                 }
             } else {
                 methods = psiClass.findMethodsByName("onCreateView", false);
+                log("fragment methods" + Arrays.toString(methods));
                 if (methods.length == 0) {
                     methods = psiClass.findMethodsByName("onCreateViewHolder", false);
+                    log("adapter methods" + Arrays.toString(methods));
                     if (methods.length == 0) {
-                        showError("can't found layout");
+                        showError("must be activity or fragment and adapter layout");
                         return;
                     } else {
                         isAdapter = true;
@@ -397,6 +409,19 @@ public class FindByIdAction extends AnAction {
         }
     }
 
+    private void psiClassIsActivity(Project project, PsiClass psiClass) {
+
+        if (psiClass.getExtendsList() != null && psiClass.getExtendsList().getReferenceElements().length != 0) {
+            if (!psiClass.getExtendsList().getReferenceElements()[0].getQualifiedName().equals("android.app.Activity")) {
+                String name = psiClass.getExtendsList().getReferenceElements()[0].getQualifiedName();
+                PsiClass clazz = JavaPsiFacade.getInstance(project).findClass(name, new EverythingGlobalScope(project));
+                psiClassIsActivity(project, clazz);
+            } else {
+                isActivity = true;
+            }
+        }
+    }
+
     private void findResDir(PsiDirectory psiDirectory) {
         if (psiDirectory.findSubdirectory("res") == null) {
             findResDir(psiDirectory.getParent());
@@ -541,13 +566,13 @@ public class FindByIdAction extends AnAction {
                 if (file != null) {
                     return file;
                 } else {
-                    showError("can't found layout");
+                    showError("can't found layout file");
                 }
             } else {
-                showError("can't found layout");
+                showError("can't found R.layout");
             }
         } else {
-            showError("can't found layout");
+            showError("Element does not belong to PsiIdentifier");
         }
         return null;
     }
@@ -558,7 +583,7 @@ public class FindByIdAction extends AnAction {
         if (file != null) {
             return file;
         } else {
-            showError("can't found layout");
+            showError("can't found sub layout");
             return null;
         }
     }
