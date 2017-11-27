@@ -26,7 +26,6 @@ import com.intellij.ui.awt.RelativePoint;
 import org.apache.http.util.TextUtils;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import static com.github.chengheaven.EventLogger.log;
@@ -37,6 +36,7 @@ public class FindByIdAction extends AnAction {
     private static StatusBar mStatusBar;
     private static PsiShortNamesCache mNamesCache;
     private PsiDirectory mResDir;
+    private boolean isActivity = false;
 
     private static JBPopupFactory newInstance() {
         if (mFactory == null) {
@@ -86,6 +86,7 @@ public class FindByIdAction extends AnAction {
         PsiClass psiClass = getTargetClass(editor, psiFile);
         PsiElementFactory factory = JavaPsiFacade.getElementFactory(project);
         if (psiClass != null) {
+            isActivity = false;
             boolean isAdapter = false;
             boolean isFragment = false;
             PsiFile[] xmlFiles = mNamesCache.getFilesByName("AndroidManifest.xml");
@@ -97,7 +98,6 @@ public class FindByIdAction extends AnAction {
             }
             XmlTag[] tags = new XmlTag[0];
             if (manifest != null) {
-                log("manifest not null");
                 tags = manifest.getSubTags();
             }
             if (tags.length == 0) {
@@ -105,7 +105,7 @@ public class FindByIdAction extends AnAction {
                 return;
             }
 
-            boolean isActivity = psiClassIsActivity(project, psiClass);
+            psiClassIsActivity(project, psiClass);
 //            for (XmlTag tag : tags) {
 //                if (tag.getName().equals("application")) {
 //                    for (XmlTag subTag : tag.getSubTags()) {
@@ -122,17 +122,14 @@ public class FindByIdAction extends AnAction {
 
             if (isActivity) {
                 methods = psiClass.findMethodsByName("onCreate", false);
-                log("activity methods" + Arrays.toString(methods));
                 if (methods.length == 0) {
                     showError("must be activity or fragment and adapter layout");
                     return;
                 }
             } else {
                 methods = psiClass.findMethodsByName("onCreateView", false);
-                log("fragment methods" + Arrays.toString(methods));
                 if (methods.length == 0) {
                     methods = psiClass.findMethodsByName("onCreateViewHolder", false);
-                    log("adapter methods" + Arrays.toString(methods));
                     if (methods.length == 0) {
                         showError("must be activity or fragment and adapter layout");
                         return;
@@ -173,7 +170,7 @@ public class FindByIdAction extends AnAction {
                 for (PsiStatement statement : method.getBody().getStatements()) {
                     if (!haveBind && isActivity && statement.getText().contains("setContentView") && clazz != null) {
                         PsiElement bind = factory.createStatementFromText(generateBindView(true, ""), psiClass);
-                        styleManager.shortenClassReferences(method.getBody().add(bind));
+                        styleManager.shortenClassReferences(method.getBody().addAfter(bind, statement));
                     }
                     if (isFragment && statement.getText().contains("inflater.inflate")) {
                         viewStr = statement.getText().substring(5, statement.getText().indexOf(" ="));
@@ -409,15 +406,23 @@ public class FindByIdAction extends AnAction {
         }
     }
 
-    private boolean psiClassIsActivity(Project project, PsiClass psiClass) {
-
+    private void psiClassIsActivity(Project project, PsiClass psiClass) {
+        if (psiClass.getExtendsList() == null) {
+            log("extendsList === null");
+            return;
+        }
+        if (psiClass.getExtendsList().getReferenceElements().length == 0) {
+            log("psiClass.getExtendsList().getReferenceElements().length ==== 0");
+            return;
+        }
         if (psiClass.getExtendsList() != null && psiClass.getExtendsList().getReferenceElements().length != 0) {
+//            log("extends name =====  " + psiClass.getExtendsList().getReferenceElements()[0].getQualifiedName());
             if (!psiClass.getExtendsList().getReferenceElements()[0].getQualifiedName().equals("android.app.Activity")) {
                 String name = psiClass.getExtendsList().getReferenceElements()[0].getQualifiedName();
                 PsiClass clazz = JavaPsiFacade.getInstance(project).findClass(name, new EverythingGlobalScope(project));
                 psiClassIsActivity(project, clazz);
             } else {
-                return true;
+                isActivity = true;
             }
         }
         return false;
